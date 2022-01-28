@@ -1,22 +1,24 @@
-# Kubernetes Basics Lab
+# Run Application LAb
 
-- [Kubernetes Basics Lab](#kubernetes-basics-lab)
-  - [01. Run Application](#01-run-application)
-    - [Objectives](#objectives)
-    - [Creating and exploring an nginx deployment](#creating-and-exploring-an-nginx-deployment)
-    - [Updating the deployment](#updating-the-deployment)
-    - [Scaling the application by increasing the replica count](#scaling-the-application-by-increasing-the-replica-count)
-    - [Deleting a deployment](#deleting-a-deployment)
+- [Run Application LAb](#run-application-lab)
+  - [Objectives](#objectives)
+  - [Creating and exploring an nginx deployment](#creating-and-exploring-an-nginx-deployment)
+  - [Check access to the Pod](#check-access-to-the-pod)
+  - [Updating the deployment](#updating-the-deployment)
+  - [Scaling the application by increasing the replica count](#scaling-the-application-by-increasing-the-replica-count)
+  - [Deleting a deployment](#deleting-a-deployment)
 
-## 01. Run Application
+---
 
-### Objectives
+## Objectives
 
 - Create an nginx deployment.
 - Use kubectl to list information about the deployment.
-- Update the deployment.
+- Update and scale the deployment.
 
-### Creating and exploring an nginx deployment 
+---
+
+## Creating and exploring an nginx deployment 
 
 You can run an application by creating a Kubernetes Deployment object, and you can describe a Deployment in a YAML file. For example, this YAML file describes a Deployment that runs the nginx:1.14.2 Docker image: [01-nginx-deployment.yml](01-nginx-deployment.yml).
 
@@ -108,13 +110,27 @@ nginx-deployment-66b6c48dd5-cctwp   1/1     Running   0          19m
 nginx-deployment-66b6c48dd5-hqvmj   1/1     Running   0          19m
 ```
 
-4. Display information about a Pod:
+4. Create a POD_NAME variable for convenience:
 
-Allocate a running nginx pod name to POD_NAME variable:
+Using grep/head/awd tools on kubectl stdout output:
 
 ```sh
-POD_NAME="$(kubectl get pods -l app=nginx | grep Running | head -1 | awk '{print $1}')"
+export POD_NAME=$(kubectl get pods -l app=nginx | grep Running | head -1 | awk '{print $1}')
 ```
+
+Using go-template as kubectl output option:
+
+```sh
+export POD_NAME=$(kubectl get pods -o go-template='{{(index .items 0).metadata.name}}{{"\n"}}')
+```
+
+Using jq to filter json output:
+
+```sh
+export POD_NAME=$(kubectl get pods -o json | jq -r '. | .items[0].metadata.name')
+```
+
+5. Display information about a Pod:
 
 Describe the Pod information:
 
@@ -177,7 +193,162 @@ Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists fo
 Events:                      <none>
 ```
 
-### Updating the deployment 
+---
+
+## Check access to the Pod 
+
+1. Get access to the Pod:
+
+```sh 
+kubectl exec -ti $POD_NAME -- /bin/bash
+```
+
+The output is similar to this:
+
+```sh
+root@nginx-deployment-559d658b74-g8g45:/#
+```
+
+2. Try some shell commands on the Pod:
+
+Check the Pod linux release:
+
+```sh
+cat /etc/*release
+```
+
+The output is similar to this:
+
+```sh
+PRETTY_NAME="Debian GNU/Linux 10 (buster)"
+NAME="Debian GNU/Linux"
+VERSION_ID="10"
+VERSION="10 (buster)"
+VERSION_CODENAME=buster
+ID=debian
+HOME_URL="https://www.debian.org/"
+SUPPORT_URL="https://www.debian.org/support"
+BUG_REPORT_URL="https://bugs.debian.org/"
+```
+
+3. Update the Pod packages:
+
+```sh
+apt update
+```
+
+The output is similar to this:
+
+```sh
+Get:1 http://deb.debian.org/debian buster InRelease [122 kB]
+Get:2 http://deb.debian.org/debian buster-updates InRelease [51.9 kB]  
+Get:3 http://security.debian.org/debian-security buster/updates InRelease [65.4 kB]
+Get:4 http://deb.debian.org/debian buster/main amd64 Packages [7906 kB]
+Get:5 http://deb.debian.org/debian buster-updates/main amd64 Packages [8792 B]
+Get:6 http://security.debian.org/debian-security buster/updates/main amd64 Packages [313 kB]
+Fetched 8467 kB in 2s (5025 kB/s)                       
+Reading package lists... Done
+Building dependency tree       
+Reading state information... Done
+26 packages can be upgraded. Run 'apt list --upgradable' to see them.
+```
+
+4. Install pacakges on the Pod: 
+
+```sh
+apt-get install curl iproute2 -y
+```
+
+5. Check IP address of the Pod:
+
+```sh
+ip add
+```
+
+The output is similar to this:
+
+```sh
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: tunl0@NONE: <NOARP> mtu 1480 qdisc noop state DOWN group default qlen 1000
+    link/ipip 0.0.0.0 brd 0.0.0.0
+4: eth0@if19: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 8981 qdisc noqueue state UP group default 
+    link/ether ea:36:df:63:2a:d6 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 100.106.133.206/32 brd 100.106.133.206 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::e836:dfff:fe63:2ad6/64 scope link 
+       valid_lft forever preferred_lft forever
+```
+
+6. Check Nginx is working:
+
+Access the default home page of Ngnix app:
+
+```sh
+curl 127.0.0.1
+```
+
+The output is similar to this:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+```
+
+7. Exit the Pod:
+
+```sh
+exit
+```
+
+8. Check the IP addresses are matching
+
+Compare the IP address seen from the Pod at Step 5. above with the IP address given by kubectl command:
+
+```sh
+kubectl get pods -o wide
+```
+
+The output is similar to this:
+
+```sh
+NAME                                READY   STATUS    RESTARTS   AGE   IP                NODE                           NOMINATED NODE   READINESS GATES
+nginx-deployment-559d658b74-g8g45   1/1     Running   0          17h   100.106.133.207   ip-172-20-58-60.ec2.internal   <none>           <none>
+nginx-deployment-559d658b74-nb7vj   1/1     Running   0          17h   100.106.133.206   ip-172-20-58-60.ec2.internal   <none>           <none>
+nginx-deployment-559d658b74-vw8vm   1/1     Running   0          17h   100.115.37.76     ip-172-20-50-50.ec2.internal   <none>           <none>
+nginx-deployment-559d658b74-zb8q6   1/1     Running   0          17h   100.115.37.77     ip-172-20-50-50.ec2.internal   <none>           <none>
+```
+
+---
+
+## Updating the deployment 
 
 You can update the deployment by applying a new YAML file. This YAML file specifies that the deployment should be updated to use nginx 1.16.1. [02-nginx-deployment-update](02-nginx-deployment-update.yml).
 
@@ -227,7 +398,9 @@ nginx-deployment-559d658b74-4fpbt   1/1     Running   0          5m2s
 nginx-deployment-559d658b74-8wzm8   1/1     Running   0          4m59s
 ```
 
-### Scaling the application by increasing the replica count 
+---
+
+## Scaling the application by increasing the replica count 
 
 You can increase the number of Pods in your Deployment by applying a new YAML file. This YAML file sets replicas to 4, which specifies that the Deployment should have four Pods: [03-nginx-deployment-scale.yml](03-nginx-deployment-scale.yml)
 
@@ -277,10 +450,11 @@ nginx-deployment-559d658b74-h8mk5   1/1     Running   0          13s
 nginx-deployment-559d658b74-ns28l   1/1     Running   0          13s
 nginx-deployment-559d658b74-p9j85   1/1     Running   0          11s
 nginx-deployment-559d658b74-pc5km   1/1     Running   0          11s
-nginx-deployment-559d658b74-pkvqt   1/1     Running   0          13s
 ```
 
-### Deleting a deployment 
+---
+
+## Deleting a deployment 
 
 1. Delete the deployment by name:
 
