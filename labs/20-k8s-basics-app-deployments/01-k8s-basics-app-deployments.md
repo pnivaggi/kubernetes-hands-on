@@ -1,26 +1,43 @@
-# Run Application LAb
+# Application Deployments Lab
 
-- [Run Application LAb](#run-application-lab)
+- [Application Deployments Lab](#application-deployments-lab)
   - [Objectives](#objectives)
-  - [Creating and exploring an nginx deployment](#creating-and-exploring-an-nginx-deployment)
-  - [Check access to the Pod](#check-access-to-the-pod)
-  - [Updating the deployment](#updating-the-deployment)
-  - [Scaling the application by increasing the replica count](#scaling-the-application-by-increasing-the-replica-count)
-  - [Deleting a deployment](#deleting-a-deployment)
+  - [Kubernetes Deployments](#kubernetes-deployments)
+  - [Creating an application Deployment](#creating-an-application-deployment)
+  - [Inspecting the application Pods](#inspecting-the-application-pods)
+  - [Updating a Deployment](#updating-a-deployment)
+  - [Scaling a Deployment](#scaling-a-deployment)
+  - [Deleting a Deployment](#deleting-a-deployment)
 
 ---
 
 ## Objectives
 
-- Create an nginx deployment.
-- Use kubectl to list information about the deployment.
-- Update and scale the deployment.
+- Learn about application Deployments.
+- Deploy your first app on Kubernetes with kubectl.
+- Update and Scale Deployments.
 
 ---
 
-## Creating and exploring an nginx deployment 
+## Kubernetes Deployments
 
-You can run an application by creating a Kubernetes Deployment object, and you can describe a Deployment in a YAML file. For example, this YAML file describes a Deployment that runs the nginx:1.14.2 Docker image: [01-nginx-deployment.yml](01-nginx-deployment.yml).
+The Deployment instructs Kubernetes how to create and update instances of your application. Once you've created a Deployment, the Kubernetes control plane schedules the application instances included in that Deployment to run on individual Nodes in the cluster.  
+
+Once the application instances are created, a Kubernetes Deployment Controller continuously monitors those instances. If the Node hosting an instance goes down or is deleted, the Deployment controller replaces the instance with an instance on another Node in the cluster. 
+
+> This provides a self-healing mechanism to address machine failure or maintenance.  
+
+In a pre-orchestration world, installation scripts would often be used to start applications, but they did not allow recovery from machine failure. By both creating your application instances and keeping them running across Nodes, Kubernetes Deployments provide a fundamentally different approach to application management.  
+
+---
+
+## Creating an application Deployment
+
+You can create and manage a Deployment by using the Kubernetes command line interface, Kubectl. Kubectl uses the Kubernetes API to interact with the cluster. In this module, you'll learn the most common Kubectl commands needed to create Deployments that run your applications on a Kubernetes cluster.  
+
+When you create a Deployment, you'll need to specify the container image for your application and the number of replicas that you want to run. You can change that information later by updating your Deployment.  
+
+You can describe a Deployment in a YAML file. For your first Deployment, we will use this YAML file which describes a Deployment that runs the NGINX application packaged in Docker image: [01-nginx-deployment.yml](01-nginx-deployment.yml). From the YAML manifest we can see that ngnix release 1.14.2 is used for the container image and 2 replicas are deployed.  
 
 ```yaml
 apiVersion: apps/v1
@@ -46,13 +63,13 @@ spec:
 
 1. Create a Deployment based on the YAML file:
 
-```sh
-kubectl apply -f 01-nginx-deployment.yml
-```
+  ```sh
+  kubectl apply -f 01-nginx-deployment.yml
+  ```
 
-```sh
-deployment.apps/nginx-deployment created
-```
+  ```sh
+  deployment.apps/nginx-deployment created
+  ```
 
 2. Display information about the Deployment:
 
@@ -195,7 +212,7 @@ Events:                      <none>
 
 ---
 
-## Check access to the Pod 
+## Inspecting the application Pods 
 
 1. Get access to the Pod:
 
@@ -348,7 +365,7 @@ nginx-deployment-559d658b74-zb8q6   1/1     Running   0          17h   100.115.3
 
 ---
 
-## Updating the deployment 
+## Updating a Deployment
 
 You can update the deployment by applying a new YAML file. This YAML file specifies that the deployment should be updated to use nginx 1.16.1. [02-nginx-deployment-update](02-nginx-deployment-update.yml).
 
@@ -400,7 +417,7 @@ nginx-deployment-559d658b74-8wzm8   1/1     Running   0          4m59s
 
 ---
 
-## Scaling the application by increasing the replica count 
+## Scaling a Deployment 
 
 You can increase the number of Pods in your Deployment by applying a new YAML file. This YAML file sets replicas to 4, which specifies that the Deployment should have four Pods: [03-nginx-deployment-scale.yml](03-nginx-deployment-scale.yml)
 
@@ -454,7 +471,7 @@ nginx-deployment-559d658b74-pc5km   1/1     Running   0          11s
 
 ---
 
-## Deleting a deployment 
+## Deleting a Deployment
 
 1. Delete the deployment by name:
 
