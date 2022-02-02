@@ -4,7 +4,8 @@
   - [Objectives](#objectives)
   - [Pod Networking Overview](#pod-networking-overview)
   - [Nodes network configuration](#nodes-network-configuration)
-  - [Understanding Pods Networking](#understanding-pods-networking)
+  - [Deploy Pods](#deploy-pods)
+  - [Understand Pods networking](#understand-pods-networking)
   - [Check Pods connectivity](#check-pods-connectivity)
 
 ---
@@ -201,7 +202,11 @@ Kubernetes runs your workload by placing containers into Pods to run on Nodes. A
    ssh ubuntu@$node1_ip
    ```
 
-   Execute ip address command and check details for `ens5` and `tunl0`:
+   - Execute ip address command:
+
+   ```bash
+   ip addr
+   ```
 
    - The output is similar to this:
 
@@ -241,9 +246,8 @@ Kubernetes runs your workload by placing containers into Pods to run on Nodes. A
           valid_lft forever preferred_lft forever
    ```
 
-   `ens5` corresponds to the node ethernet interface and `tunl0` corresponds to the interface tunnel used by the overlay network to interconnect the different cluster nodes if not on the same subnet and allow inter node Pod communication.  
-
-   Notice the other interfaces with the name starting with `cali`. These correspond to veth pairs where one end of the pair `@if4` is the Pod interface in the Pod network namespace and the other end `cali...` is the other end of the pair in the host network namespace.  
+   - Understand that `ens5` corresponds to the node ethernet interface and `tunl0` corresponds to the interface tunnel used by the overlay network to interconnect the different cluster nodes if not on the same subnet and allow inter node Pod communication.
+   - Notice the other interfaces with the name  `cali...@if4`. These correspond to veth pairs configured by Calico CNI plugin. `@if4` is the Pod interface number (:4) seen by the Pod in the Pod network namespace.
 
 5. Check the routes installed on the node
 
@@ -278,7 +282,7 @@ Kubernetes runs your workload by placing containers into Pods to run on Nodes. A
    exit
    ```
 
-## Understanding Pods Networking
+## Deploy Pods
 
 We will deploy 2 Pods (named bb1 and bb2) running the `busybox` image. Busybox image includes tools to check IP connectivity like wget, nc, ping, traceroute... We want also to deploy the Pods on different nodes to test the inter-node communication, therefore bb1 and bb2 are deployed on node1 and node2 respectively.
 
@@ -349,7 +353,7 @@ We will deploy 2 Pods (named bb1 and bb2) running the `busybox` image. Busybox i
    exit
    ```
 
-   - Check the Pods are deployed on the right nodes
+4. Check the Pods are deployed on the right nodes
 
    ```bash
    kubectl get pods bb1 bb2 -n default -o wide
@@ -376,9 +380,11 @@ We will deploy 2 Pods (named bb1 and bb2) running the `busybox` image. Busybox i
    Node2: ip-172-20-58-60.ec2.internal
    ```
 
-   and it concludes bb1 and bb2 are well deployed on node1 and node2 respectively.
+   - We can conclude bb1 and bb2 are well deployed on node1 and node2 respectively.
 
-4. Check node interface/route modifications
+## Understand Pods networking
+
+1. Check node interface/route modifications on node1
 
    - Get ssh access to node1
 
@@ -458,10 +464,10 @@ We will deploy 2 Pods (named bb1 and bb2) running the `busybox` image. Busybox i
           valid_lft forever preferred_lft forever
    ```
 
-   - Notice that Calico CNI has also created a veth pair to link the Pod interface to the host network namespace. In our case it is interface (22:) named ```cali98fd8882b62@if4```.
-   - Understand that from the interface naming convention, we can figure out the veth pair is connected to interface (4:) on the Pod side. Let's check that on the Pod itself.
+   - Notice that Calico CNI has also created a veth pair to link the Pod interface to the host network namespace. In our case it is interface `22:` named ```cali98fd8882b62@if4```.
+   - Understand that from the interface naming convention, we can figure out the veth pair is connected to interface `4:` on the Pod side. Let's check that on the Pod itself.
 
-5. Check Pod IP address and connectivity
+2. Check Pod IP address and connectivity
 
    - Export the IP address of Pod bb1 
 
@@ -472,7 +478,13 @@ We will deploy 2 Pods (named bb1 and bb2) running the `busybox` image. Busybox i
    - Visualize that IP address allocated by Kubernetes
 
    ```bash
-   echo $bb1_ip
+   echo bb1 Pod IP: $bb1_ip
+   ```
+
+   - The output is similar to this:
+
+   ```bash
+   bb1 Pod IP: 100.115.37.81
    ```
 
    - Check it is the same address as the one seen by the Pod itself
@@ -502,7 +514,8 @@ We will deploy 2 Pods (named bb1 and bb2) running the `busybox` image. Busybox i
 
    We can notice that:
    - in our case, IP address seen by the Pod bb1 is `100.115.37.81/32` and it is the same as the one given by kubectl get pods command.
-   - the interface on the Pod is the fourth one (4:) as indicated when running ip addr command on Pod bb1, that interface named `eth0@if22` is also connectected the interface (22:) in the host network namespace as indicated by `@if22`.
+   - the interface on the Pod is the fourth one `4:`. It is consistent with the output given earlier from the node1 (remember the `@if4`). 
+   - that interface named `eth0@if22` is also connectected the interface `22:` in the host network namespace as indicated by `@if22`. It is consistent with the output given earlier from the node1 (remember the `:22` index). 
 
 ## Check Pods connectivity
 
