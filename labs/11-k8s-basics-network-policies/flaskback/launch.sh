@@ -1,0 +1,1 @@
+docker run --name flaskback -d -p 5001:5000 pnivaggi/flaskback:latest
