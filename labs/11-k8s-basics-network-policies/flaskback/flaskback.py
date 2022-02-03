@@ -9,10 +9,16 @@ mysql = MySQL()
 
 # MySQL configurations
 app.config["MYSQL_DATABASE_USER"] = "root"
-app.config["MYSQL_DATABASE_PASSWORD"] = os.getenv("db_root_password")
-app.config["MYSQL_DATABASE_DB"] = os.getenv("db_name")
+#app.config["MYSQL_DATABASE_PASSWORD"] = os.getenv("db_root_password")
+app.config["MYSQL_DATABASE_PASSWORD"] = "password"
+#app.config["MYSQL_DATABASE_DB"] = os.getenv("db_name")
+app.config["MYSQL_DATABASE_DB"] = "mydb"
 app.config["MYSQL_DATABASE_HOST"] = os.getenv("MYSQL_SERVICE_HOST")
 app.config["MYSQL_DATABASE_PORT"] = int(os.getenv("MYSQL_SERVICE_PORT"))
+app.config["MYSQL_DATABASE_CHARSET"] = 'utf8mb4'
+app.config["MYSQL_DATABASE_USE_UNICODE"] = True
+app.config["MYSQL_USE_UNICODE"] = True
+app.config["MYSQL_CHARSET"] = 'utf8mb4'
 mysql.init_app(app)
 
 
