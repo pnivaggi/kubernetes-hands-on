@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysqldb
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: mysqldb
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysqldb
+spec:
+  selector:
+    matchLabels:
+      app: mysqldb
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mysqldb
+        tier: database
+    spec:
+      containers:
+      - image: mysql:latest
+        name: mysqldb
+        env:
+          # Use secret in real usage
+        - name: MYSQL_ROOT_PASSWORD
+          value: password
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: mysqldb-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysqldb-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysqldb-pvc

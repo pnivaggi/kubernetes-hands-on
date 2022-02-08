@@ -1,0 +1,19 @@
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: mysqldb
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: mysqldb
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          tier: backend
+    ports:
+      - protocol: TCP
+        port: 3306
+  egress:
+    - to: []

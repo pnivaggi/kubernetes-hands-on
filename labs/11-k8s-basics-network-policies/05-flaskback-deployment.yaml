@@ -1,0 +1,52 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flaskback
+  labels:
+    app: flaskback
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flaskback
+  template:
+    metadata:
+      labels:
+        app: flaskback
+        tier: backend
+    spec:
+      containers:
+        - name: flaskback
+          image: pnivaggi/flaskback
+          ports:
+            - containerPort: 5000
+          env:
+            - name: MYSQL_SERVICE_PORT
+              value: "3306"
+            - name: MYSQL_SERVICE_HOST
+              value: "mysqldb"
+            - name: MYSQL_DEFAULT_DB
+              value: mydb
+            # Use secret in real usage
+            - name: MYSQL_ROOT_PWD
+              value: "password"
+#           - name: MYSQL_ROOT_PWD
+#             valueFrom:
+#               secretKeyRef:
+#                 name: flaskback-secrets
+#                 key: MYSQL_ROOT_PWD
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flaskback
+spec:
+  ports:
+  - port: 5000
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    app: flaskback
+  clusterIP: None
