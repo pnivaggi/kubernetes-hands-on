@@ -1,0 +1,10 @@
+apiVersion: projectcalico.org/v3
+kind: IPPool
+metadata:
+  name: external-pool
+spec:
+  cidr: 198.19.24.0/21
+  blockSize: 29
+  ipipMode: Never
+  natOutgoing: true
+  nodeSelector: "!all()"
