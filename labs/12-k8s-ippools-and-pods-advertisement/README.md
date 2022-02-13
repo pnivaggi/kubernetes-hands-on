@@ -15,104 +15,187 @@ There are two address ranges that Kubernetes is normally configured with that ar
 - The cluster pod CIDR is the range of IP addresses Kubernetes is expecting to be assigned to pods in   the cluster.
 - The services CIDR is the range of IP addresses that are used for the Cluster IPs of Kubernetes Sevices (the virtual IP that corresponds to each Kubernetes Service).
 
-The lab uses Calico CNI which allows advanced feature like using BGP to advertise IP prefixes related to Pod or services IP addresses range.
-One use of Calico IP Pools is to distinguish between different ranges of addresses with different routability scopes.
+The lab uses Calico CNI which allows advanced features like using BGP to peer with external router and advertise IP prefixes for Pods or Services.
+
+One can control the Services and Pods reachability with the use of Calico IP Pools to distinguish between different ranges of addresses with different routability scopes (externally advertized or not).
+
+In that lab, we will create a speficic IP Pool to represent the externally routable pool, and we’ll use Bird virtual machine to represent a BGP router that is “outside of the cluster”.
 
 ## Pod external routable IP Pool
 
 1. Check the configured IP Pools
 
-```bash
-calicoctl get ippools --allow-version-mismatch
-```
+    ```bash
+    calicoctl get ippools --allow-version-mismatch
+    ```
 
-The output is similar to:
+    The output is similar to:
 
-```bash
-NAME                  CIDR            SELECTOR   
-default-ipv4-ippool   100.96.0.0/11   all()  
-```
+    ```bash
+    NAME                  CIDR            SELECTOR   
+    default-ipv4-ippool   100.96.0.0/11   all()  
+    ```
 
-In this cluster Calico has been configured to allocate IP addresses for pods from the 100.96.0.0/11 CIDR.
+    In this cluster Calico has been configured to allocate IP addresses for Pods from the 100.96.0.0/11 CIDR, i.e a range from 100.96.0.0 to 100.127.255.255.
 
 2. Create externally routable IP Pool
 
-```bash
-calicoctl apply -f 02-externalIpPool.yml --allow-version-mismatch
-```
+    We will apply the following configuration to create an externally routable IP Pool:
 
-The output is similar to:
+    ```yaml
+    apiVersion: projectcalico.org/v3
+    kind: IPPool
+    metadata:
+      name: external-pool
+    spec:
+      cidr: 198.19.24.0/21
+      blockSize: 29
+      ipipMode: Never
+      natOutgoing: true
+      nodeSelector: "!all()"
+    ```
 
-```bash
-Successfully applied 1 'IPPool' resource(s)
-```
+    Notice the specified cidr ```198.19.24.0/21```
 
-- Check the IPPool configured in the cluster
+    ```bash
+    calicoctl apply -f 01-externalIpPool.yml --allow-version-mismatch
+    ```
 
-```bash
-calicoctl get ippools --allow-version-mismatch
-```
+    The output is similar to:
 
-The output is similar to:
+    ```bash
+    Successfully applied 1 'IPPool' resource(s)
+    ```
 
-```bash
-NAME                  CIDR             SELECTOR   
-default-ipv4-ippool   100.96.0.0/11    all()      
-external-pool         198.19.24.0/21   !all() 
-```
+    - Check the IPPool configured in the cluster
+
+    ```bash
+    calicoctl get ippools --allow-version-mismatch
+    ```
+
+    The output is similar to:
+
+    ```bash
+    NAME                  CIDR             SELECTOR   
+    default-ipv4-ippool   100.96.0.0/11    all()      
+    external-pool         198.19.24.0/21   !all() 
+    ```
 
 3. Create external namespace
 
-```bash
-kubectl apply -f 03-externalNamespace.yml
-```
+    We will apply the following configuration to create an speficic namespace referred for Pod deployment which need to be externally routable:
 
-The output is similar to:
+    ```yaml
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      annotations:
+        cni.projectcalico.org/ipv4pools: '["external-pool"]'
+      name: external-ns
+    ```
 
-```bash
-namespace/external-ns created
-```
+    Notice the created ```external-ns``` refers to the previously configured IP Pool ```external-pool```.
+
+    ```bash
+    kubectl apply -f 02-externalNamespace.yml
+    ```
+
+    The output is similar to:
+
+    ```bash
+    namespace/external-ns created
+    ```
 
 4. Deploy nginx application
 
-```bash
-kubectl apply -f 04-nginx-deployment-ns.yml
-```
+    We will apply the following configuration to create an nginx deployment and an associated network policy:
 
-The output is similar to:
+    ```yaml
+    ---
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: nginx
+      namespace: external-ns
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: nginx
+      template:
+        metadata:
+          labels:
+            app: nginx
+            version: v1
+        spec:
+          containers:
+          - name: nginx
+            image: nginx
+            imagePullPolicy: IfNotPresent
 
-```bash
-deployment.apps/nginx created
-```
+    ---
+    kind: NetworkPolicy
+    apiVersion: networking.k8s.io/v1
+    metadata:
+      name: nginx
+      namespace: external-ns
+    spec:
+      podSelector:
+        matchLabels:
+          app: nginx
+      policyTypes:
+      - Ingress
+      - Egress
+      ingress:
+      - ports:
+        - protocol: TCP
+          port: 80
+    ---
+    ```
+
+    Notice that:
+
+    - nginx is deployed in ```namespace: external-ns``` in order to get allocated an externally routable Pod IP address from ```external-pool``` IP Pool
+    - the associated network policy only authorized ```protocol: TCP``` and ```port: 80``` traffic towards the Pods
+
+    ```bash
+    kubectl apply -f 03-nginx-deployment-ns.yml
+    ```
+
+    The output is similar to:
+
+    ```bash
+    deployment.apps/nginx created
+    ```
 
 5. Check IP address allocated
 
-```bash
-kubectl get pods -n external-ns -o wide
-```
+    ```bash
+    kubectl get pods -n external-ns -o wide
+    ```
 
-The output is similar to:
+    The output is similar to:
 
-```bash
-NAME                     READY   STATUS    RESTARTS   AGE   IP              NODE                           NOMINATED NODE   READINESS GATES
-nginx-76dd8577bc-8lj92   1/1     Running   0          13h   198.19.24.184   ip-172-20-58-60.ec2.internal   <none>           <none>
-```
+    ```bash
+    NAME                     READY   STATUS    RESTARTS   AGE   IP              NODE                           NOMINATED NODE   READINESS GATES
+    nginx-76dd8577bc-8lj92   1/1     Running   0          13h   198.19.24.184   ip-172-20-58-60.ec2.internal   <none>           <none>
+    ```
 
-Notice the ngnix pod has been allocated an address (198.19.24.184) belonging to the external-pool.
+    Notice the ngnix pod has been allocated an address (198.19.24.184) belonging to the external-pool.
 
 ## BGP peering and IP Pool advertisement
 
 1. Configure BGP to peer with Bird VM
 
-```bash
-calicoctl apply -f 01.globalBgpPeer.yml --allow-version-mismatch
-```
+  ```bash
+  calicoctl apply -f 01.globalBgpPeer.yml --allow-version-mismatch
+  ```
 
-The output is similar to:
+  The output is similar to:
 
-```bash
-Successfully applied 1 'BGPPeer' resource(s)
-```
+  ```bash
+  Successfully applied 1 'BGPPeer' resource(s)
+  ```
 
 2. Check the BGP connection status
 
@@ -206,6 +289,7 @@ blackhole 198.19.24.184/29 proto bird
 ```
 
 Notice the routes learned from BGP bird process (advertised by the Bird VM) and the new routes related to ngnix deployment:
+
 - ```198.19.24.184 dev calie1b64f5d824 scope link```: host route to reach the ngnix Pod
 - ```blackhole 198.19.24.184/29 proto bird```: prefix advertised by the node1 to external BGP peers
 
